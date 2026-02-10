@@ -1,95 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NRLM Attendance</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Attendance</title>
 <style>
-body { font-family: Arial; background:#eef2f5; padding:15px }
-.card { background:#fff; padding:15px; border-radius:12px; margin-bottom:15px }
-button { padding:10px; border:none; border-radius:8px; margin:5px; background:#2e7d32; color:#fff }
-input, textarea { width:100%; padding:10px; margin:6px 0 }
+body{font-family:Arial;background:#eef}
+.card{background:#fff;padding:15px;border-radius:10px;margin:10px}
+button{padding:8px 12px;margin:5px;background:#2e7d32;color:#fff;border:0}
 </style>
 </head>
-
 <body>
 
 <div class="card">
-  <h3>🔐 Cadre Login</h3>
-  <input id="mobile" placeholder="Mobile Number">
-  <button onclick="login()">Login</button>
+<h3>Login</h3>
+<input id="mobile" placeholder="Mobile">
+<button onclick="login()">Login</button>
 </div>
 
-<div id="panel" class="card" style="display:none">
-  <h3 id="name"></h3>
+<div id="cadre" class="card" style="display:none">
+<h3>Cadre Panel</h3>
+<button onclick="mark('IN')">IN</button>
+<button onclick="mark('OUT')">OUT</button>
+<input type="date" id="from"><input type="date" id="to">
+<textarea id="reason"></textarea>
+<button onclick="leave()">Apply Leave</button>
+</div>
 
-  <button onclick="mark('IN')">Mark IN</button>
-  <button onclick="mark('OUT')">Mark OUT</button>
+<div id="approval" class="card" style="display:none">
+<h3>Approvals</h3>
+<div id="list"></div>
+</div>
 
-  <h4>Apply Leave</h4>
-  <input type="date" id="from">
-  <input type="date" id="to">
-  <textarea id="reason" placeholder="Reason"></textarea>
-  <button onclick="leave()">Apply Leave</button>
-
-  <p id="msg"></p>
+<div id="reports" class="card" style="display:none">
+<h3>Monthly PDF</h3>
+<input id="month" placeholder="YYYY-MM">
+<button onclick="pdf()">Generate</button>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxrrCAZGkst_V8Zwz7mimr8PKqPO93J5E-7BKkcXcW3Pwaz4gaL5v5hMXQOdb-xDCHnAA/exec";
-let user = {};
+const API="PASTE_EXEC_URL";
+let U={};
 
-function login() {
-  fetch(API_URL, {
-    method:"POST",
-    body:JSON.stringify({ action:"login", mobile: mobile.value })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    if(d.error) return alert(d.error);
-    user=d;
-    panel.style.display="block";
-    name.innerText = "Welcome " + d.name;
-  });
+function login(){
+fetch(API,{method:"POST",body:JSON.stringify({action:"login",mobile:mobile.value})})
+.then(r=>r.json()).then(d=>{
+U=d;
+if(d.role==="CADRE") cadre.style.display="block";
+if(d.role!=="CADRE") loadApprovals();
+if(d.role==="BLOCK") reports.style.display="block";
+});
 }
 
-function mark(type) {
-  navigator.geolocation.getCurrentPosition(p=>{
-    fetch(API_URL,{
-      method:"POST",
-      body:JSON.stringify({
-        action:"attendance",
-        type,
-        mobile:user.mobile,
-        name:user.name,
-        lat:p.coords.latitude,
-        lng:p.coords.longitude,
-        allowedLat:user.lat,
-        allowedLng:user.lng,
-        radius:user.radius
-      })
-    })
-    .then(r=>r.json())
-    .then(d=>msg.innerText=d.message || d.error);
-  },()=>alert("Location permission required"));
+function mark(t){
+navigator.geolocation.getCurrentPosition(p=>{
+fetch(API,{method:"POST",body:JSON.stringify({
+action:"attendance",type:t,
+mobile:U.mobile,name:U.name,clf:U.clf,vo:U.vo,
+lat:p.coords.latitude,lng:p.coords.longitude,
+allowedLat:U.lat,allowedLng:U.lng,radius:U.radius
+})});
+});
 }
 
-function leave() {
-  fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      action:"leave",
-      mobile:user.mobile,
-      name:user.name,
-      from:from.value,
-      to:to.value,
-      reason:reason.value
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>alert(d.message || d.error));
+function leave(){
+fetch(API,{method:"POST",body:JSON.stringify({
+action:"leave",mobile:U.mobile,name:U.name,clf:U.clf,vo:U.vo,
+from:from.value,to:to.value,reason:reason.value
+})}).then(()=>alert("Leave applied"));
+}
+
+function loadApprovals(){
+approval.style.display="block";
+fetch(API,{method:"POST",body:JSON.stringify({action:"pendingLeaves",role:U.role})})
+.then(r=>r.json()).then(d=>{
+list.innerHTML=d.map(x=>
+`<div>${x[2]} | ${x[5]}-${x[6]}
+<button onclick="dec('${x[0]}','APPROVE')">✔</button>
+<button onclick="dec('${x[0]}','REJECT')">✖</button></div>`).join("");
+});
+}
+
+function dec(id,decision){
+const remark=prompt("Remark");
+fetch(API,{method:"POST",body:JSON.stringify({
+action:"approveLeave",id,decision,remark,role:U.role
+})}).then(()=>loadApprovals());
+}
+
+function pdf(){
+fetch(API,{method:"POST",body:JSON.stringify({action:"monthlyPDF",month:month.value})})
+.then(r=>r.json()).then(d=>window.open(d.url));
 }
 </script>
-
 </body>
 </html>
