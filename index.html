@@ -38,59 +38,59 @@ button{padding:8px 12px;margin:5px;background:#2e7d32;color:#fff;border:0}
 </div>
 
 <script>
-const API="https://script.google.com/macros/s/AKfycby9nQUzOb2qABuqDwCKoG2acCRjjsokSa9LYzG7LWgcQz7Vcz8y7B1P_Eb645VacgOcMw/exec";
-let U={};
+const API = "https://script.google.com/macros/s/AKfycbwwPNV-HX2oCZOM-rF-RMWhoWaToo3po2Bxfgy7RPLSmX2HlxQ8d0rUwbN0HEgjEjlpTw/exec";
+let USER = {};
 
-function login(){
-fetch(API,{method:"POST",body:JSON.stringify({action:"login",mobile:mobile.value})})
-.then(r=>r.json()).then(d=>{
-U=d;
-if(d.role==="CADRE") cadre.style.display="block";
-if(d.role!=="CADRE") loadApprovals();
-if(d.role==="BLOCK") reports.style.display="block";
-});
-}
+const mobileInput = document.getElementById("mobile");
+const msg = document.createElement("div");
+document.body.prepend(msg);
 
-function mark(t){
-navigator.geolocation.getCurrentPosition(p=>{
-fetch(API,{method:"POST",body:JSON.stringify({
-action:"attendance",type:t,
-mobile:U.mobile,name:U.name,clf:U.clf,vo:U.vo,
-lat:p.coords.latitude,lng:p.coords.longitude,
-allowedLat:U.lat,allowedLng:U.lng,radius:U.radius
-})});
-});
-}
+function login() {
+  const mobile = mobileInput.value.trim();
 
-function leave(){
-fetch(API,{method:"POST",body:JSON.stringify({
-action:"leave",mobile:U.mobile,name:U.name,clf:U.clf,vo:U.vo,
-from:from.value,to:to.value,reason:reason.value
-})}).then(()=>alert("Leave applied"));
-}
+  if (!mobile) {
+    alert("Please enter mobile number");
+    return;
+  }
 
-function loadApprovals(){
-approval.style.display="block";
-fetch(API,{method:"POST",body:JSON.stringify({action:"pendingLeaves",role:U.role})})
-.then(r=>r.json()).then(d=>{
-list.innerHTML=d.map(x=>
-`<div>${x[2]} | ${x[5]}-${x[6]}
-<button onclick="dec('${x[0]}','APPROVE')">✔</button>
-<button onclick="dec('${x[0]}','REJECT')">✖</button></div>`).join("");
-});
-}
+  fetch(API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      action: "login",
+      mobile: mobile
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      alert("❌ " + data.error);
+      return;
+    }
 
-function dec(id,decision){
-const remark=prompt("Remark");
-fetch(API,{method:"POST",body:JSON.stringify({
-action:"approveLeave",id,decision,remark,role:U.role
-})}).then(()=>loadApprovals());
-}
+    USER = data;
+    alert("✅ Welcome " + data.name + " (" + data.role + ")");
 
-function pdf(){
-fetch(API,{method:"POST",body:JSON.stringify({action:"monthlyPDF",month:month.value})})
-.then(r=>r.json()).then(d=>window.open(d.url));
+    // ROLE BASED UI
+    if (data.role === "CADRE") {
+      document.getElementById("cadre").style.display = "block";
+    }
+    if (data.role === "BPM" || data.role === "BLOCK") {
+      loadApprovals();
+      document.getElementById("approval").style.display = "block";
+    }
+    if (data.role === "BLOCK") {
+      document.getElementById("reports").style.display = "block";
+    }
+  })
+  .catch(err => {
+    alert("Network error");
+    console.error(err);
+  });
 }
 </script>
+
 </body>
 </html>
