@@ -38,7 +38,7 @@ button{padding:8px 12px;margin:5px;background:#2e7d32;color:#fff;border:0}
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyYLwwFPrz6KcaueA0BpAhQI_j_1RwbYXgU_DC3LQ8n3TUvqMC7cuoCWwA4_X7RqMIkZw/exec";
+const API = "https://script.google.com/macros/s/AKfycbyU7BgOUt2SvEobXXTNsBPv2SoBwoL1mjIB9mQX_CqaWW6B2IL_1NW7-tFjZku3OEIUjA/exec";
 let USER = {};
 
 const mobileInput = document.getElementById("mobile");
@@ -53,17 +53,15 @@ function login() {
     return;
   }
 
-  fetch(API, {
+fetch(SCRIPT_URL, {
   method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    action: "login",
-    mobile: mobile
-  }),
-  redirect: "follow"
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(data)
 })
+.then(res => res.json())
+.then(console.log)
+.catch(console.error);
+
 
   .then(res => res.json())
   .then(data => {
