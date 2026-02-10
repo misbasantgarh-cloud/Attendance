@@ -5,108 +5,89 @@
 <title>NRLM Attendance</title>
 
 <style>
-body { font-family: Arial; background:#f4f6f8; padding:15px }
-.card { background:#fff; padding:15px; border-radius:12px; margin-bottom:15px; box-shadow:0 5px 15px #0001 }
+body { font-family: Arial; background:#eef2f5; padding:15px }
+.card { background:#fff; padding:15px; border-radius:12px; margin-bottom:15px }
 button { padding:10px; border:none; border-radius:8px; margin:5px; background:#2e7d32; color:#fff }
-input, textarea { width:100%; padding:10px; margin:5px 0 }
-.hidden { display:none }
+input, textarea { width:100%; padding:10px; margin:6px 0 }
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h3>🔐 Login</h3>
-  <input id="mobile" placeholder="Mobile number">
+  <h3>🔐 Cadre Login</h3>
+  <input id="mobile" placeholder="Mobile Number">
   <button onclick="login()">Login</button>
 </div>
 
-<div id="cadre" class="card hidden">
-  <h3>👷 Cadre Panel</h3>
-  <button onclick="mark('IN')">IN</button>
-  <button onclick="mark('OUT')">OUT</button>
+<div id="panel" class="card" style="display:none">
+  <h3 id="name"></h3>
+
+  <button onclick="mark('IN')">Mark IN</button>
+  <button onclick="mark('OUT')">Mark OUT</button>
 
   <h4>Apply Leave</h4>
-  <input id="from" type="date">
-  <input id="to" type="date">
+  <input type="date" id="from">
+  <input type="date" id="to">
   <textarea id="reason" placeholder="Reason"></textarea>
-  <button onclick="applyLeave()">Apply Leave</button>
-</div>
+  <button onclick="leave()">Apply Leave</button>
 
-<div id="bpm" class="card hidden">
-  <h3>📋 BPM Panel</h3>
-  <button onclick="loadLeaves()">View Leaves</button>
-  <div id="leaves"></div>
-</div>
-
-<div id="block" class="card hidden">
-  <h3>🏢 Block Panel</h3>
-  <button onclick="loadLeaves()">View All Leaves</button>
-  <div id="leavesBlock"></div>
+  <p id="msg"></p>
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyUyilDFQ1wOip8UJRW7KYJREiXXfjsU6_o7QwfyW6BF5FnOIMRWotRsuIEnLSo3rejBw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxrrCAZGkst_V8Zwz7mimr8PKqPO93J5E-7BKkcXcW3Pwaz4gaL5v5hMXQOdb-xDCHnAA/exec";
 let user = {};
 
 function login() {
-  fetch(API, {
+  fetch(API_URL, {
     method:"POST",
     body:JSON.stringify({ action:"login", mobile: mobile.value })
-  }).then(r=>r.json()).then(d=>{
+  })
+  .then(r=>r.json())
+  .then(d=>{
     if(d.error) return alert(d.error);
     user=d;
-    document.querySelectorAll(".hidden").forEach(x=>x.style.display="none");
-    if(d.role==="CADRE") cadre.style.display="block";
-    if(d.role==="BPM") bpm.style.display="block";
-    if(d.role==="BLOCK") block.style.display="block";
+    panel.style.display="block";
+    name.innerText = "Welcome " + d.name;
   });
 }
 
-function mark(type){
+function mark(type) {
   navigator.geolocation.getCurrentPosition(p=>{
-    fetch(API,{method:"POST",body:JSON.stringify({
-      action:"markAttendance",
-      ...user,
-      type,
-      lat:p.coords.latitude,
-      lng:p.coords.longitude
-    })}).then(r=>r.json()).then(d=>alert(d.message));
-  });
+    fetch(API_URL,{
+      method:"POST",
+      body:JSON.stringify({
+        action:"attendance",
+        type,
+        mobile:user.mobile,
+        name:user.name,
+        lat:p.coords.latitude,
+        lng:p.coords.longitude,
+        allowedLat:user.lat,
+        allowedLng:user.lng,
+        radius:user.radius
+      })
+    })
+    .then(r=>r.json())
+    .then(d=>msg.innerText=d.message || d.error);
+  },()=>alert("Location permission required"));
 }
 
-function applyLeave(){
-  fetch(API,{method:"POST",body:JSON.stringify({
-    action:"applyLeave",
-    ...user,
-    from:from.value,
-    to:to.value,
-    reason:reason.value
-  })}).then(r=>r.json()).then(d=>alert(d.message));
-}
-
-function loadLeaves(){
-  fetch(API,{method:"POST",body:JSON.stringify({action:"getLeaves"})})
-  .then(r=>r.json()).then(rows=>{
-    leaves.innerHTML="";
-    rows.forEach(r=>{
-      leaves.innerHTML+=`
-        <div>
-          ${r[2]} (${r[3]} to ${r[4]}) - ${r[6]}
-          <button onclick="decide('${r[0]}','APPROVED')">✔</button>
-          <button onclick="decide('${r[0]}','REJECTED')">✖</button>
-        </div>`;
-    });
-  });
-}
-
-function decide(id,decision){
-  fetch(API,{method:"POST",body:JSON.stringify({
-    action:"decideLeave",
-    id,
-    decision,
-    by:user.role
-  })}).then(()=>alert("Updated"));
+function leave() {
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      action:"leave",
+      mobile:user.mobile,
+      name:user.name,
+      from:from.value,
+      to:to.value,
+      reason:reason.value
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>alert(d.message || d.error));
 }
 </script>
 
