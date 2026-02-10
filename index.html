@@ -1,178 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>NRLM Attendance System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NRLM Attendance</title>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Google Maps -->
-  <script src="https://maps.googleapis.com/maps/api/js"></script>
-
-  <style>
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: linear-gradient(135deg, #f0f7ff, #e8f5e9);
-      margin: 0;
-      padding: 15px;
-    }
-
-    .card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 16px;
-      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-    }
-
-    h3 {
-      margin-top: 0;
-      color: #1b5e20;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      margin-bottom: 12px;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 10px;
-    }
-
-    button {
-      flex: 1;
-      padding: 12px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #fff;
-    }
-
-    .in-btn {
-      background: #2e7d32;
-    }
-
-    .out-btn {
-      background: #c62828;
-    }
-
-    .map-btn {
-      background: #1565c0;
-      width: 100%;
-    }
-
-    #msg {
-      margin-top: 12px;
-      font-weight: 600;
-    }
-
-    #map {
-      height: 300px;
-      border-radius: 12px;
-      margin-top: 10px;
-    }
-  </style>
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:15px }
+.card { background:#fff; padding:15px; border-radius:12px; margin-bottom:15px; box-shadow:0 5px 15px #0001 }
+button { padding:10px; border:none; border-radius:8px; margin:5px; background:#2e7d32; color:#fff }
+input, textarea { width:100%; padding:10px; margin:5px 0 }
+.hidden { display:none }
+</style>
 </head>
 
 <body>
 
-  <!-- Cadre Attendance -->
-  <div class="card">
-    <h3>📍 NRLM Cadre Attendance</h3>
+<div class="card">
+  <h3>🔐 Login</h3>
+  <input id="mobile" placeholder="Mobile number">
+  <button onclick="login()">Login</button>
+</div>
 
-    <input id="mobile" placeholder="Registered Mobile Number" />
+<div id="cadre" class="card hidden">
+  <h3>👷 Cadre Panel</h3>
+  <button onclick="mark('IN')">IN</button>
+  <button onclick="mark('OUT')">OUT</button>
 
-    <div class="btn-row">
-      <button class="in-btn" onclick="mark('IN')">Mark IN</button>
-      <button class="out-btn" onclick="mark('OUT')">Mark OUT</button>
-    </div>
+  <h4>Apply Leave</h4>
+  <input id="from" type="date">
+  <input id="to" type="date">
+  <textarea id="reason" placeholder="Reason"></textarea>
+  <button onclick="applyLeave()">Apply Leave</button>
+</div>
 
-    <div id="msg"></div>
-  </div>
+<div id="bpm" class="card hidden">
+  <h3>📋 BPM Panel</h3>
+  <button onclick="loadLeaves()">View Leaves</button>
+  <div id="leaves"></div>
+</div>
 
-  <!-- BPM Dashboard -->
-  <div class="card">
-    <h3>🗺️ BPM Live Dashboard</h3>
-    <button class="map-btn" onclick="loadMap()">View Live Map</button>
-    <div id="map"></div>
-  </div>
+<div id="block" class="card hidden">
+  <h3>🏢 Block Panel</h3>
+  <button onclick="loadLeaves()">View All Leaves</button>
+  <div id="leavesBlock"></div>
+</div>
 
 <script>
-/* ================= CONFIG ================= */
-const API_URL = "PASTE_APPS_SCRIPT_URL_HERE";
-/* ========================================= */
+const API = "PASTE_APPS_SCRIPT_EXEC_URL";
+let user = {};
 
-const msg = document.getElementById("msg");
-
-function mark(type) {
-  const mobile = document.getElementById("mobile").value.trim();
-
-  if (!mobile) {
-    msg.innerHTML = "❌ Enter mobile number";
-    return;
-  }
-
-  msg.innerHTML = "📡 Getting location...";
-
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "markAttendance",
-          mobile: mobile,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          type: type
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        msg.innerHTML = data.status === "ok"
-          ? "✅ " + data.message
-          : "❌ " + data.message;
-      })
-      .catch(() => msg.innerHTML = "❌ Server error");
-    },
-    () => msg.innerHTML = "❌ Location permission required",
-    { enableHighAccuracy: true, timeout: 15000 }
-  );
+function login() {
+  fetch(API, {
+    method:"POST",
+    body:JSON.stringify({ action:"login", mobile: mobile.value })
+  }).then(r=>r.json()).then(d=>{
+    if(d.error) return alert(d.error);
+    user=d;
+    document.querySelectorAll(".hidden").forEach(x=>x.style.display="none");
+    if(d.role==="CADRE") cadre.style.display="block";
+    if(d.role==="BPM") bpm.style.display="block";
+    if(d.role==="BLOCK") block.style.display="block";
+  });
 }
 
-function loadMap() {
-  fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "getMapData" })
-  })
-  .then(res => res.json())
-  .then(rows => {
-    if (!rows.length) {
-      alert("No attendance data");
-      return;
-    }
+function mark(type){
+  navigator.geolocation.getCurrentPosition(p=>{
+    fetch(API,{method:"POST",body:JSON.stringify({
+      action:"markAttendance",
+      ...user,
+      type,
+      lat:p.coords.latitude,
+      lng:p.coords.longitude
+    })}).then(r=>r.json()).then(d=>alert(d.message));
+  });
+}
 
-    const map = new google.maps.Map(document.getElementById("map"), {
-      zoom: 12,
-      center: { lat: rows[0].lat, lng: rows[0].lng }
-    });
+function applyLeave(){
+  fetch(API,{method:"POST",body:JSON.stringify({
+    action:"applyLeave",
+    ...user,
+    from:from.value,
+    to:to.value,
+    reason:reason.value
+  })}).then(r=>r.json()).then(d=>alert(d.message));
+}
 
-    rows.forEach(r => {
-      new google.maps.Marker({
-        position: { lat: r.lat, lng: r.lng },
-        map: map,
-        label: r.name
-      });
+function loadLeaves(){
+  fetch(API,{method:"POST",body:JSON.stringify({action:"getLeaves"})})
+  .then(r=>r.json()).then(rows=>{
+    leaves.innerHTML="";
+    rows.forEach(r=>{
+      leaves.innerHTML+=`
+        <div>
+          ${r[2]} (${r[3]} to ${r[4]}) - ${r[6]}
+          <button onclick="decide('${r[0]}','APPROVED')">✔</button>
+          <button onclick="decide('${r[0]}','REJECTED')">✖</button>
+        </div>`;
     });
   });
+}
+
+function decide(id,decision){
+  fetch(API,{method:"POST",body:JSON.stringify({
+    action:"decideLeave",
+    id,
+    decision,
+    by:user.role
+  })}).then(()=>alert("Updated"));
 }
 </script>
 
