@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NRLM Attendance System</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Google Maps -->
+  <script src="https://maps.googleapis.com/maps/api/js"></script>
+
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #f0f7ff, #e8f5e9);
+      margin: 0;
+      padding: 15px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    }
+
+    h3 {
+      margin-top: 0;
+      color: #1b5e20;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .in-btn {
+      background: #2e7d32;
+    }
+
+    .out-btn {
+      background: #c62828;
+    }
+
+    .map-btn {
+      background: #1565c0;
+      width: 100%;
+    }
+
+    #msg {
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    #map {
+      height: 300px;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Cadre Attendance -->
+  <div class="card">
+    <h3>📍 NRLM Cadre Attendance</h3>
+
+    <input id="mobile" placeholder="Registered Mobile Number" />
+
+    <div class="btn-row">
+      <button class="in-btn" onclick="mark('IN')">Mark IN</button>
+      <button class="out-btn" onclick="mark('OUT')">Mark OUT</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+  <!-- BPM Dashboard -->
+  <div class="card">
+    <h3>🗺️ BPM Live Dashboard</h3>
+    <button class="map-btn" onclick="loadMap()">View Live Map</button>
+    <div id="map"></div>
+  </div>
+
+<script>
+/* ================= CONFIG ================= */
+const API_URL = "PASTE_APPS_SCRIPT_URL_HERE";
+/* ========================================= */
+
+const msg = document.getElementById("msg");
+
+function mark(type) {
+  const mobile = document.getElementById("mobile").value.trim();
+
+  if (!mobile) {
+    msg.innerHTML = "❌ Enter mobile number";
+    return;
+  }
+
+  msg.innerHTML = "📡 Getting location...";
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "markAttendance",
+          mobile: mobile,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          type: type
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        msg.innerHTML = data.status === "ok"
+          ? "✅ " + data.message
+          : "❌ " + data.message;
+      })
+      .catch(() => msg.innerHTML = "❌ Server error");
+    },
+    () => msg.innerHTML = "❌ Location permission required",
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+
+function loadMap() {
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "getMapData" })
+  })
+  .then(res => res.json())
+  .then(rows => {
+    if (!rows.length) {
+      alert("No attendance data");
+      return;
+    }
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+      zoom: 12,
+      center: { lat: rows[0].lat, lng: rows[0].lng }
+    });
+
+    rows.forEach(r => {
+      new google.maps.Marker({
+        position: { lat: r.lat, lng: r.lng },
+        map: map,
+        label: r.name
+      });
+    });
+  });
+}
+</script>
+
+</body>
+</html>
